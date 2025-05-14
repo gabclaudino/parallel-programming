@@ -136,8 +136,13 @@ int main(int argc, char ** argv) {
 
 	// sizes of both sequences
 	int sizeA, sizeB;
+    
+    // medidas de tempo 
+    double start, end, time_spent;
 
 	//read both sequences
+    start = omp_get_wtime();
+
 	seqA = read_seq("fileA.in");
 	seqB = read_seq("fileB.in");
 
@@ -145,14 +150,37 @@ int main(int argc, char ** argv) {
 	sizeA = strlen(seqA);
 	sizeB = strlen(seqB);
 
+    end = omp_get_wtime();
+    time_spent = end - start;
+    printf("Tempo de leitura das sequencias: %.6f segundos\n", time_spent);
+
+
 	// allocate LCS score matrix
+    start = omp_get_wtime();
+
 	mtype ** scoreMatrix = allocateScoreMatrix(sizeA, sizeB);
 
+    end = omp_get_wtime();
+    time_spent = end - start;
+    printf("Tempo de alocacao de memoria para matriz: %.6f segundos\n", time_spent);
+
 	//initialize LCS score matrix
+    start = omp_get_wtime();
+
 	initScoreMatrix(scoreMatrix, sizeA, sizeB);
 
+    end = omp_get_wtime();
+    time_spent = end - start;
+    printf("Tempo de inicializacao da matriz score: %.6f segundos\n", time_spent);
+
 	//fill up the rest of the matrix and return final score (element locate at the last line and collumn)
+    start = omp_get_wtime();
+
 	mtype score = LCS(scoreMatrix, sizeA, sizeB, seqA, seqB);
+
+    end = omp_get_wtime();
+    time_spent = end - start;
+    printf("Tempo de aplicacao do LCS: %.6f segundos\n", time_spent);
 
 	/* if you wish to see the entire score matrix,
 	 for debug purposes, define DEBUGMATRIX. */
@@ -164,7 +192,13 @@ int main(int argc, char ** argv) {
 	printf("\nScore: %d\n", score);
 
 	//free score matrix
+    start = omp_get_wtime();
+
 	freeScoreMatrix(scoreMatrix, sizeB);
+
+    end = omp_get_wtime();
+    time_spent = end - start;
+    printf("Tempo de librecao da matriz: %.6f segundos\n", time_spent);
 
 	return EXIT_SUCCESS;
 }
