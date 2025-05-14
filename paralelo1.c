@@ -51,50 +51,48 @@ mtype ** allocateScoreMatrix(int sizeA, int sizeB) {
 /* Inicializa a matriz: a primeira linha e a primeira coluna são zeradas */
 void initScoreMatrix(mtype ** scoreMatrix, int sizeA, int sizeB) {
     int j;
-    #pragma omp parallel for shared(scoreMatrix, sizeA, sizeB)
+    #pragma omp parallel for shared(scoreMatrix, sizeA)
     for (j = 0; j < (sizeA + 1); j++) {
         scoreMatrix[0][j] = 0;
     }
     int i;
-    #pragma omp parallel for shared(scoreMatrix, sizeA, sizeB)
+    #pragma omp parallel for shared(scoreMatrix, sizeB)
     for (i = 1; i < (sizeB + 1); i++) {
         scoreMatrix[i][0] = 0;
     }
 }
 
 /* Computa o LCS usando uma varredura em anti-diagonais para extrair paralelismo */
-int LCS(mtype ** scoreMatrix, int sizeA, int sizeB, char * seqA, char * seqB) {
+
+int LCS(mtype **scoreMatrix, int sizeA, int sizeB, char *seqA, char *seqB) {
     int d, i, j;
-    int start, end;
-    /* 
-       Nota:
-       Cada célula (i,j) depende de scoreMatrix[i-1][j], scoreMatrix[i][j-1] 
-       e scoreMatrix[i-1][j-1]. Ao percorrer a matriz em anti-diagonais, as dependências 
-       das células de uma diagonal já foram calculadas na iteração anterior.
-    */
-    #pragma omp parallel private(d, i, j, start, end)
+
+    #pragma omp parallel
     {
-        for (d = 2; d <= (sizeA + sizeB); d++) {
-            /* 
-               Para cada diagonal d = i + j, i varia de max(1, d-sizeA) até min(sizeB, d-1)
-               e j = d - i.
-            */
-            start = (d - sizeA > 1) ? d - sizeA : 1;
-            end = (d - 1 > sizeB) ? sizeB : d - 1;
-            #pragma omp for
-            for (i = start; i <= end; i++) {
-                j = d - i;
-                if (seqA[j - 1] == seqB[i - 1])
-                    scoreMatrix[i][j] = scoreMatrix[i - 1][j - 1] + 1;
-                else
-                    scoreMatrix[i][j] = max(scoreMatrix[i - 1][j], scoreMatrix[i][j - 1]);
+        #pragma omp single
+        {
+            for (d = 2; d <= sizeA + sizeB; d++) {
+                for (i = 1; i <= sizeB; i++) {
+                    j = d - i;
+                    if (j >= 1 && j <= sizeA) {
+                        #pragma omp task firstprivate(i, j)
+                        {
+                            if (seqA[j - 1] == seqB[i - 1]) {
+                                scoreMatrix[i][j] = scoreMatrix[i - 1][j - 1] + 1;
+                            } else {
+                                scoreMatrix[i][j] = max(scoreMatrix[i - 1][j], scoreMatrix[i][j - 1]);
+                            }
+                        }
+                    }
+                }
+                // Espera todas as tasks dessa diagonal antes de passar para a próxima
+                #pragma omp taskwait
             }
-            #pragma omp barrier
         }
     }
+
     return scoreMatrix[sizeB][sizeA];
 }
-
 /* Função para impressão da matriz (útil para debug) */
 void printMatrix(char * seqA, char * seqB, mtype ** scoreMatrix, int sizeA, int sizeB) {
     int i, j;
@@ -120,7 +118,7 @@ void printMatrix(char * seqA, char * seqB, mtype ** scoreMatrix, int sizeA, int 
 /* Libera a memória alocada para a matriz de pontuação */
 void freeScoreMatrix(mtype **scoreMatrix, int sizeB) {
     int i;
-    #pragma omp parallel for shared(scoreMatrix, sizeA, sizeB)
+    #pragma omp parallel for shared(scoreMatrix, sizeB)
     for (i = 0; i < (sizeB + 1); i++) {
         free(scoreMatrix[i]);
     }
